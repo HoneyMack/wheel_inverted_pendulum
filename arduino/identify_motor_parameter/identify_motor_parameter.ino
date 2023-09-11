@@ -1,12 +1,14 @@
-// モーターのダイナミクスを推定するために電圧をモータドライバに印加し、モータに加わる電圧を計測しシリアル通信でPCに送るシステム
+// モーターのパラメータを推定
+// ダイナミクスを推定するために電圧をモータドライバに印加し、モータに加わる電圧を計測しシリアル通信でPCに送るシステム
+
 
 #include <Arduino.h>
 #include <SAMD21turboPWM.h>
 #include "MCP_ADC.h"
 
-const uint8_t PWM_CONTROL_PIN = A0;//PWM制御用入力ピン
-const uint8_t PWM_PIN1 = 5; // PWM出力ピン
-const uint8_t PWM_PIN2 = 0; // PWM出力ピン
+//制御用ピン設定
+const uint8_t PWM_CONTROL_PIN = A0;//PWMデューティ比制御用入力ピン
+const uint8_t PWM_PIN = 5; // PWM出力ピン
 
 const float VOLTAGE_REFERENCE = 5.0; // 電圧計測用基準電圧
 //ADC周り
@@ -16,7 +18,8 @@ const uint8_t ADC_CS_PIN = 10; // ADCのCSピン
 const float I_RESISTOR = 5.0;//1.2;//0.1;
 
 
-TurboPWM pwm1;
+
+TurboPWM pwm_out;
 MCP3004 adc;
 int counter = 0;
 float motor_voltage = 0.0;
@@ -26,36 +29,26 @@ const int MAX_COUNTER = 100;
 
 void setup() {
    Serial.begin(115200);
-   // //PWM出力ピンの設定
-   // pinMode(PWM_PIN1, OUTPUT);
-   // pinMode(PWM_PIN2, OUTPUT);
 
-   //PWMの設定
-   pwm1.setClockDivider(1, true);
-   pwm1.timer(0, 1, 0xFFF, false);
-   pwm1.enable(0, true); //PWM出力を有効にする
+   //モータードライバへのPWM出力の設定
+   pwm_out.setClockDivider(1, true);
+   pwm_out.timer(0, 1, 0xFFF, false);
+   pwm_out.enable(0, true); //PWM出力を有効にする
 
    //ADCの設定
    adc.begin(ADC_CS_PIN);
 }
 
 void loop() {
-   // float voltage = analogRead(MOTOR_VOLTAGE_PIN) * VOLTAGE_REFERENCE / 1024.0;
+   //PWMデューティ比の読み取り
    float duty_cycle = analogRead(PWM_CONTROL_PIN) / 1024.0;
-   // analogWrite(PWM_PIN1, (uint8_t)(duty_cycle * 255));
-   // analogWrite(PWM_PIN2, 0);
-   pwm1.analogWrite(PWM_PIN1, (int)(1000 * duty_cycle));
-   // Serial.print(voltage);
-   // Serial.print("\t");
 
-   // //電圧計測
+   //PWM出力
+   pwm_out.analogWrite(PWM_PIN, (int)(1000 * duty_cycle));
+
+   //電圧計測
    motor_voltage += adc.differentialRead(0) * VOLTAGE_REFERENCE / 1024.0;
    resister_voltage += adc.differentialRead(2) * VOLTAGE_REFERENCE / 1024.0;
-   // motor_voltage += adc.deltaRead(0) * VOLTAGE_REFERENCE / 1024.0;
-   // resister_voltage += adc.deltaRead(2) * VOLTAGE_REFERENCE / 1024.0;
-
-
-
    counter++;
 
    if (counter > MAX_COUNTER) {
