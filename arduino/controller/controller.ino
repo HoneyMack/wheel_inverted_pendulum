@@ -30,7 +30,7 @@ const float f_c = 5; // [Hz]
 const float f_n = 2 * f_c / f_s;
 const float T_s = 1 / f_s;
 const float T_c = 1 / f_c;
-auto gyro_lowpass_filter = butter<4>(f_n);
+auto gyro_lowpass_filter = butter<2>(f_n);
 
 const float alpha = T_c / (T_s + T_c); //姿勢角推定用の相補フィルタの係数
 double theta_offset = 0.0;
@@ -67,14 +67,21 @@ Vector3 gyro_bias, gyro, accel;
 
 // J_M *1倍
 float A[NUM_STATES][NUM_STATES] = {
+   // {0.0000e+00,1.0000e+00,0.0000e+00},
+   // {2.3172e+02,0.0000e+00,3.4529e+02},
+   // {-7.6835e+02,0.0000e+00,-1.5314e+03},
+
+   //抵抗R_M=0.578
    {0.0000e+00,1.0000e+00,0.0000e+00},
-   {2.3172e+02,0.0000e+00,3.4529e+02},
-   {-7.6835e+02,0.0000e+00,-1.5314e+03},
+{2.3172e+02,0.0000e+00,1.7322e+02},
+{-7.6835e+02,0.0000e+00,-7.6826e+02},
 };
-float B[NUM_STATES] = { 0.0000e+00,-2.7959e+03,1.2400e+04 };
+float B[NUM_STATES] =
+// { 0.0000e+00,-2.7959e+03,1.2400e+04 }
+{ 0.0000e+00,-1.1890e+03,5.2734e+03 };// 抵抗R_M=0.578
 
 float C[NUM_OBSERVATIONS][NUM_STATES] = {
-   //{1.0000e+00,0.0000e+00,0.0000e+00},
+   {1.0000e+00,0.0000e+00,0.0000e+00},
    {0.0000e+00,1.0000e+00,0.0000e+00},
 };
 
@@ -102,15 +109,35 @@ float C[NUM_OBSERVATIONS][NUM_STATES] = {
 // };
 
 float L[NUM_STATES][NUM_OBSERVATIONS] = { //J_M *1
-   {1.1025e+00},
-   {-1.4714e+03},
-   {6.5291e+03},
+   // {1.1025e+00},
+   // {-1.4714e+03},
+   // {6.5291e+03},
+   // {4.7971e+00},
+   // {-1.3314e+03},
+   // {5.9410e+03},
+   // {2.8920e+01},
+   // {-1.1314e+03},
+   // {5.1511e+03},
+   // {1.4060e+02},
+   // {-3.3139e+02},
+   // {1.9915e+03},
+
+   // 抵抗R_M=0.578
+   // {7.9566e+00},
+   // {-5.6826e+02},
+   // {2.5867e+03},
+{1.2423e+01,1.0697e+00},
+{2.2330e+02,-7.4068e+02},
+{-7.5100e+02,3.2860e+03},
 };
 
 //フィードバックゲイン
 // float F[NUM_STATES] = { 1.1024e+01,1.4622e+00,2.5099e-01 }; // J_M* 100
 // float F[NUM_STATES] = { 9.2854e+00,1.2401e+00,2.5099e-01 }; // J_M* 1
-float F[NUM_STATES] = { 9.1138e+00,1.2182e+00,2.5099e-01 }; //等倍
+float F[NUM_STATES] =
+// { 9.1138e+00,1.2182e+00,2.5099e-01 }; //等倍
+// { 1.0672e+01,1.4062e+00,2.9476e-01 }; // 抵抗R_M=0.578
+{ 1.0385e+01,1.3571e+00,2.9308e-01 }; // 抵抗R_M=0.578
 
 Observer observer(A, B, C, L);
 
@@ -122,7 +149,8 @@ unsigned long before_time = 0, current_time = 0; //経過時間保持
 //出力値の制限
 const float V_M = 5.0; //モーター電源電圧[V]
 const float MAX_OUTPUT = 4.5; //[V]
-const float MIN_OUTPUT = 1.0; //[V] // モーターが動き出す直前の電圧
+const float MIN_OUTPUT = 0.0; //[V] 
+const float MOTOR_DEAD_ZOME = 1.0; //[V] モーターが動き出す直前の電圧
 //動作モードの設定
 enum Mode {
    STOP,
@@ -328,14 +356,17 @@ void mode_run_action() {
 
       //観測値の更新
       // 角速度のみ観測値として使う場合
-      y[0] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
+      // y[0] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
       // 姿勢も観測値として使う場合
-      // y[0] = theta_est;
-      // y[1] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
+      y[0] = theta_est;
+      y[1] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
       // オブザーバの更新
-      observer.step(y, u, dt);
+      if (abs(u) < MOTOR_DEAD_ZOME) // モーターが動かないときは動いてないとして処理
+         observer.step(y, 0, dt);
+      else
+         observer.step(y, u, dt);   // モーターが動いているときはモーター出力をそのまま使う
 
       // 状態フィードバックの計算
       u = calculate_u();
