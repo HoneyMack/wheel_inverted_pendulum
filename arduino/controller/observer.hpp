@@ -7,10 +7,11 @@ private:
    float B[NUM_STATES];
    float C[NUM_OBSERVATIONS][NUM_STATES];
    float L[NUM_STATES][NUM_OBSERVATIONS];
-   float x_est[NUM_STATES];
    float t;
 
 public:
+   float x_est[NUM_STATES];
+
    Observer(float A[NUM_STATES][NUM_STATES], float B[NUM_STATES], float C[NUM_OBSERVATIONS][NUM_STATES], float L[NUM_STATES][NUM_OBSERVATIONS]) {
       for (int i = 0; i < NUM_STATES; i++) {
          for (int j = 0; j < NUM_STATES; j++) {
