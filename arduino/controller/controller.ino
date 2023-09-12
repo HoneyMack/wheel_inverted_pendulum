@@ -4,9 +4,6 @@
 #include <Arduino.h>
 #include <SAMD21turboPWM.h>
 #include <Arduino_LSM6DS3.h>
-#include <TMM_vector.h>
-#include <TMM_matrix.h>
-#include <TMM_squarematrix.h>
 
 
 //制御用ピン設定
