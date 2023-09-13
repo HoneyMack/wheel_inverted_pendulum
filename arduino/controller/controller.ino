@@ -23,14 +23,15 @@ const uint8_t SWITCH_PIN = 15; // A1ピン
 TurboPWM pwm_out;
 
 //バイアス・ノイズ除去
-const uint8_t NUM_OF_SAMPLES = 100;
-const uint8_t THETA_OFFSET_SAMPLES = 50;
+const uint8_t NUM_OF_SAMPLES = 200;
+const uint8_t THETA_OFFSET_SAMPLES = 100;
 //バターワースフィルタ
 const float f_s = 416; // [Hz]
-const float f_c = 20; // [Hz]
+const float f_c = 40; // [Hz]
 const float f_n = 2 * f_c / f_s;
 const float T_s = 1 / f_s;
 const float T_c = 1 / f_c;
+auto theta_lowpass_filter = butter<4>(f_n / 2);
 auto gyro_lowpass_filter = butter<4>(f_n);
 
 const float alpha = T_c / (T_s + T_c); //姿勢角推定用の相補フィルタの係数
@@ -45,7 +46,27 @@ struct Vector3 {
 Vector3 gyro_bias, gyro, accel;
 
 
+
 //状態空間表現
+// //記録用：my best parameter
+// float A[NUM_STATES][NUM_STATES] = {
+// {0.0000e+00,1.0000e+00,0.0000e+00},
+// {1.2678e+02,0.0000e+00,1.6379e+02},
+// {-6.5784e+02,0.0000e+00,-1.2283e+03},
+// };
+// float B[NUM_STATES] =
+// { 0.0000e+00,-1.3262e+03,9.9455e+03 };
+// float C[NUM_OBSERVATIONS][NUM_STATES] = {
+//    {0.0000e+00,1.0000e+00,0.0000e+00},
+// };
+// float F[NUM_STATES] =
+// { 1.1973e+01,1.9179e+00,2.4901e-01 };
+// float L[NUM_STATES][NUM_OBSERVATIONS] = {
+//    {7.6707e+00},
+//    {-1.0283e+03},
+//    {7.7941e+03},
+// };
+
 // J_M *100倍
 // float A[NUM_STATES][NUM_STATES] = {
 //    {0.0000e+00,1.0000e+00,0.0000e+00},
@@ -92,7 +113,8 @@ float C[NUM_OBSERVATIONS][NUM_STATES] = {
 float F[NUM_STATES] =
 // { 1.4555e+01,2.7148e+00,2.5485e-01 }; //等倍 <-いい感じ
 //{ 1.2741e+01,2.0756e+00,2.5485e-01 }; //さらにいい
-{ 1.1973e+01,1.9179e+00,2.4901e-01 }; //めちゃくちゃいい
+// { 1.1973e+01,1.9179e+00,2.4901e-01 }; //めちゃくちゃいい
+{ 1.1973e+01,1.9179e+00,2.4901e-01 };
 
 
 // { 1.0672e+01,1.4062e+00,2.9476e-01 }; // 抵抗R_M=0.578
@@ -144,21 +166,33 @@ float L[NUM_STATES][NUM_OBSERVATIONS] = { //J_M *1
 // {7.9184e+03},
 
 
-//めちゃくちゃいい
-{7.6707e+00},
-{-1.0283e+03},
-{7.7941e+03},
+// //めちゃくちゃいい
+// {7.6707e+00},
+// {-1.0283e+03},
+// {7.7941e+03},
 
-// 抵抗R_M=0.578
-// {7.9566e+00},
-// {-5.6826e+02},
-// {2.5867e+03},
-// {1.2423e+01,1.0697e+00},
-// {2.2330e+02,-7.4068e+02},
-// {-7.5100e+02,3.2860e+03},
-// {1.1039e+00},
-// {-5.7620e+02},
-// {4.3273e+03},
+   {7.6707e+00},
+   {-1.0283e+03},
+   {7.7941e+03},
+
+   // {1.3987e+01},
+   // {-9.9829e+02},
+   // {7.5990e+03},
+
+   // {4.0736e+01,1.3724e+00},
+   // {1.2532e+02,-1.0690e+03},
+   // {-6.0934e+02,8.0651e+03},
+
+   // 抵抗R_M=0.578
+   // {7.9566e+00},
+   // {-5.6826e+02},
+   // {2.5867e+03},
+   // {1.2423e+01,1.0697e+00},
+   // {2.2330e+02,-7.4068e+02},
+   // {-7.5100e+02,3.2860e+03},
+   // {1.1039e+00},
+   // {-5.7620e+02},
+   // {4.3273e+03},
 };
 
 
@@ -171,7 +205,7 @@ unsigned long before_time = 0, current_time = 0; //経過時間保持
 
 //出力値の制限
 const float V_M = 5.0; //モーター電源電圧[V]
-const float MAX_OUTPUT = 4.5; //[V]
+const float MAX_OUTPUT = 4.0; //[V] // 4.0[V]
 const float MIN_OUTPUT = 0.0; //[V] 
 const float MOTOR_DEAD_ZOME = 0.0; //[V] モーターが動き出す直前の電圧
 //動作モードの設定
@@ -383,7 +417,7 @@ void mode_run_action() {
       y[0] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
       // // 姿勢も観測値として使う場合
-      // y[0] = theta_est;
+      // y[0] = theta_lowpass_filter(theta_est);
       // y[1] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
       // オブザーバの更新
