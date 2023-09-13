@@ -90,7 +90,10 @@ float C[NUM_OBSERVATIONS][NUM_STATES] = {
 // float F[NUM_STATES] = { 1.1024e+01,1.4622e+00,2.5099e-01 }; // J_M* 100
 // float F[NUM_STATES] = { 9.2854e+00,1.2401e+00,2.5099e-01 }; // J_M* 1
 float F[NUM_STATES] =
-{ 1.4555e+01,2.7148e+00,2.5485e-01 }; //等倍
+// { 1.4555e+01,2.7148e+00,2.5485e-01 }; //等倍 <-いい感じ
+{ 1.2741e+01,2.0756e+00,2.5485e-01 };
+
+
 // { 1.0672e+01,1.4062e+00,2.9476e-01 }; // 抵抗R_M=0.578
 // { 2.2920e+01,5.7675e+00,2.9808e-01 }; // 抵抗R_M=0.578
 
@@ -135,9 +138,13 @@ float L[NUM_STATES][NUM_OBSERVATIONS] = { //J_M *1
 // {-1.1883e+03},
 // {8.9144e+03},
 
-{4.8044e+00},
-{-1.0483e+03},
-{7.9184e+03},
+// {4.8044e+00},
+// {-1.0483e+03},
+// {7.9184e+03},
+
+{7.6707e+00},
+{-1.0283e+03},
+{7.7941e+03},
 
 // 抵抗R_M=0.578
 // {7.9566e+00},
@@ -162,8 +169,8 @@ unsigned long before_time = 0, current_time = 0; //経過時間保持
 //出力値の制限
 const float V_M = 5.0; //モーター電源電圧[V]
 const float MAX_OUTPUT = 4.5; //[V]
-const float MIN_OUTPUT = 0.5; //[V] 
-const float MOTOR_DEAD_ZOME = 1.2; //[V] モーターが動き出す直前の電圧
+const float MIN_OUTPUT = 0.0; //[V] 
+const float MOTOR_DEAD_ZOME = 0.0; //[V] モーターが動き出す直前の電圧
 //動作モードの設定
 enum Mode {
    STOP,
