@@ -24,9 +24,10 @@ TurboPWM pwm_out;
 
 //バイアス・ノイズ除去
 const uint8_t NUM_OF_SAMPLES = 100;
+const uint8_t THETA_OFFSET_SAMPLES = 50;
 //バターワースフィルタ
-const float f_s = 104; // [Hz]
-const float f_c = 35; // [Hz]
+const float f_s = 416; // [Hz]
+const float f_c = 20; // [Hz]
 const float f_n = 2 * f_c / f_s;
 const float T_s = 1 / f_s;
 const float T_c = 1 / f_c;
@@ -67,24 +68,31 @@ Vector3 gyro_bias, gyro, accel;
 
 // J_M *1倍
 float A[NUM_STATES][NUM_STATES] = {
-   // {0.0000e+00,1.0000e+00,0.0000e+00},
-   // {2.3172e+02,0.0000e+00,3.4529e+02},
-   // {-7.6835e+02,0.0000e+00,-1.5314e+03},
-
-   //抵抗R_M=0.578
 {0.0000e+00,1.0000e+00,0.0000e+00},
-{1.2678e+02,0.0000e+00,8.2169e+01},
-{-6.5784e+02,0.0000e+00,-6.1620e+02},
+{1.2678e+02,0.0000e+00,1.6379e+02},
+{-6.5784e+02,0.0000e+00,-1.2283e+03},
+
+//抵抗R_M=0.578
+// {0.0000e+00,1.0000e+00,0.0000e+00},
+// {1.2678e+02,0.0000e+00,8.2169e+01},
+// {-6.5784e+02,0.0000e+00,-6.1620e+02},
 };
 float B[NUM_STATES] =
-// { 0.0000e+00,-2.7959e+03,1.2400e+04 }
-{ 0.0000e+00,-5.6402e+02,4.2297e+03 };// 抵抗R_M=0.578
+{ 0.0000e+00,-1.3262e+03,9.9455e+03 };
+// { 0.0000e+00,-5.6402e+02,4.2297e+03 };// 抵抗R_M=0.578
 
 float C[NUM_OBSERVATIONS][NUM_STATES] = {
    //{1.0000e+00,0.0000e+00,0.0000e+00},
    {0.0000e+00,1.0000e+00,0.0000e+00},
 };
 
+//フィードバックゲイン
+// float F[NUM_STATES] = { 1.1024e+01,1.4622e+00,2.5099e-01 }; // J_M* 100
+// float F[NUM_STATES] = { 9.2854e+00,1.2401e+00,2.5099e-01 }; // J_M* 1
+float F[NUM_STATES] =
+{ 1.4555e+01,2.7148e+00,2.5485e-01 }; //等倍
+// { 1.0672e+01,1.4062e+00,2.9476e-01 }; // 抵抗R_M=0.578
+// { 2.2920e+01,5.7675e+00,2.9808e-01 }; // 抵抗R_M=0.578
 
 //オブザーバーゲイン
 // float L[NUM_STATES][NUM_OBSERVATIONS] = { { 1.00379706e+00}, {-1.51138837e+03}, {6.70345312e+03} }; // 
@@ -108,6 +116,7 @@ float C[NUM_OBSERVATIONS][NUM_STATES] = {
 //    {-7.3945e+02,6.6167e+03}
 // };
 
+
 float L[NUM_STATES][NUM_OBSERVATIONS] = { //J_M *1
    // {1.1025e+00},
    // {-1.4714e+03},
@@ -122,25 +131,26 @@ float L[NUM_STATES][NUM_OBSERVATIONS] = { //J_M *1
    // {-3.3139e+02},
    // {1.9915e+03},
 
-   // 抵抗R_M=0.578
-   // {7.9566e+00},
-   // {-5.6826e+02},
-   // {2.5867e+03},
+// {1.0521e+00},
+// {-1.1883e+03},
+// {8.9144e+03},
+
+{4.8044e+00},
+{-1.0483e+03},
+{7.9184e+03},
+
+// 抵抗R_M=0.578
+// {7.9566e+00},
+// {-5.6826e+02},
+// {2.5867e+03},
 // {1.2423e+01,1.0697e+00},
 // {2.2330e+02,-7.4068e+02},
 // {-7.5100e+02,3.2860e+03},
-{1.1039e+00},
-{-5.7620e+02},
-{4.3273e+03},
+// {1.1039e+00},
+// {-5.7620e+02},
+// {4.3273e+03},
 };
 
-//フィードバックゲイン
-// float F[NUM_STATES] = { 1.1024e+01,1.4622e+00,2.5099e-01 }; // J_M* 100
-// float F[NUM_STATES] = { 9.2854e+00,1.2401e+00,2.5099e-01 }; // J_M* 1
-float F[NUM_STATES] =
-// { 9.1138e+00,1.2182e+00,2.5099e-01 }; //等倍
-// { 1.0672e+01,1.4062e+00,2.9476e-01 }; // 抵抗R_M=0.578
-{ 2.2920e+01,5.7675e+00,2.9808e-01 }; // 抵抗R_M=0.578
 
 Observer observer(A, B, C, L);
 
@@ -152,8 +162,8 @@ unsigned long before_time = 0, current_time = 0; //経過時間保持
 //出力値の制限
 const float V_M = 5.0; //モーター電源電圧[V]
 const float MAX_OUTPUT = 4.5; //[V]
-const float MIN_OUTPUT = 1.0; //[V] 
-const float MOTOR_DEAD_ZOME = 1.0; //[V] モーターが動き出す直前の電圧
+const float MIN_OUTPUT = 0.5; //[V] 
+const float MOTOR_DEAD_ZOME = 1.2; //[V] モーターが動き出す直前の電圧
 //動作モードの設定
 enum Mode {
    STOP,
@@ -194,8 +204,8 @@ float calculate_u() {
    voltage = (voltage < -MAX_OUTPUT) ? -MAX_OUTPUT : voltage;
 
    // 電圧が低いと動かないので、u=0でギリギリ動く手前となるように補正
-   float u_scaled = (MAX_OUTPUT - MIN_OUTPUT) / (MAX_OUTPUT)*abs(voltage) + MIN_OUTPUT;
-   voltage = (voltage > 0) ? u_scaled : -u_scaled;
+   float v_scaled = (MAX_OUTPUT - MIN_OUTPUT) / (MAX_OUTPUT)*abs(voltage) + MIN_OUTPUT;
+   voltage = (voltage > 0) ? v_scaled : -v_scaled;
 
    return voltage;
 }
@@ -213,7 +223,7 @@ void drive_motor(float duty_cycle, uint8_t PIN1, uint8_t PIN2) {
 
 void serial_debug() {
    if (mode == Mode::RUN) {
-      if (counter > 100) {
+      if (counter > 200) {
          counter = 0;
          // // シリアル出力
          // Serial.print(gyro.x);
@@ -230,19 +240,19 @@ void serial_debug() {
          // Serial.println();
 
          //オブザーバの状態・出力uをシリアル出力
-         Serial.print(observer.x_est[0]);
+         Serial.print(observer.x_est[0], 4);
          Serial.print(",");
-         Serial.print(observer.x_est[1]);
+         Serial.print(observer.x_est[1], 4);
          Serial.print(",");
-         Serial.print(observer.x_est[2]);
+         Serial.print(observer.x_est[2], 4);
          Serial.print(",");
-         Serial.print(u);
+         Serial.print(u, 4);
          Serial.print(",");
-         Serial.print(y[0]);
+         Serial.print(y[0], 4);
          Serial.print(",");
-         Serial.print(y[1]);
+         Serial.print(y[1], 4);
          Serial.print(",");
-         Serial.print(dt);
+         Serial.print(dt, 4);
          Serial.println();
       }
    }
@@ -260,7 +270,7 @@ void setup() {
 
    //モータードライバへのPWM出力の設定
    pwm_out.setClockDivider(1, true);
-   pwm_out.timer(0, 1, 0xFFF, false);
+   pwm_out.timer(0, 1, 0xFFFF, false);
    pwm_out.enable(0, true); //PWM出力を有効にする
 
    // LSM6DS3の初期化
@@ -319,13 +329,14 @@ void mode_initialize_action() {
 
    //thetaのオフセットを計算
    theta_offset = 0.0;
-   for (int i = 0; i < NUM_OF_SAMPLES / 2; i++) {
+
+   for (int i = 0; i < THETA_OFFSET_SAMPLES; i++) {
       while (!IMU.accelerationAvailable())
          delay(1);
       update_accel();
       theta_offset += atan2(-accel.y, -accel.z);
    }
-   theta_offset /= (NUM_OF_SAMPLES / 2);
+   theta_offset /= THETA_OFFSET_SAMPLES;
 
 
    delay(500); //押してから少しの間動かないようにする
@@ -359,17 +370,20 @@ void mode_run_action() {
 
       //観測値の更新
       // 角速度のみ観測値として使う場合
-      // y[0] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
+      y[0] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
-      // 姿勢も観測値として使う場合
-      y[0] = theta_est;
-      y[1] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
+      // // 姿勢も観測値として使う場合
+      // y[0] = theta_est;
+      // y[1] = gyro_lowpass_filter(gyro.x); // ローパスフィルタを通す
 
       // オブザーバの更新
       if (abs(u) < MOTOR_DEAD_ZOME) // モーターが動かないときは動いてないとして処理
          observer.step(y, 0, dt);
       else
          observer.step(y, u, dt);   // モーターが動いているときはモーター出力をそのまま使う
+
+      // //角速度に関しては観測精度が高いので、センサの値をオブザーバに上書きしてしまう
+      // observer.x_est[1] = y[0];
 
       // 状態フィードバックの計算
       u = calculate_u();
@@ -380,7 +394,7 @@ void mode_run_action() {
       drive_motor(duty_cycle, L_PWM_PIN1, L_PWM_PIN2);
 
       //本体が横に倒れるか、ボタンを押したら停止モードに移行
-      if (abs(accel.z) > 2.0 || digitalRead(SWITCH_PIN) == HIGH) {
+      if (abs(accel.z) > 4.0 || digitalRead(SWITCH_PIN) == HIGH) {
          mode = Mode::STOP;
          // モーターを停止
          drive_motor(0, R_PWM_PIN1, R_PWM_PIN2);
