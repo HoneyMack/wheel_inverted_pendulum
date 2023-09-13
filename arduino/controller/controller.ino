@@ -206,8 +206,8 @@ unsigned long before_time = 0, current_time = 0; //経過時間保持
 //出力値の制限
 const float V_M = 5.0; //モーター電源電圧[V]
 const float MAX_OUTPUT = 4.0; //[V] // 4.0[V]
-const float MIN_OUTPUT = 0.0; //[V] 
-const float MOTOR_DEAD_ZOME = 0.0; //[V] モーターが動き出す直前の電圧
+const float MIN_OUTPUT = 1.0; //[V] 
+const float MOTOR_DEAD_ZOME = 1.5; //[V] モーターが動き出す直前の電圧
 //動作モードの設定
 enum Mode {
    STOP,
